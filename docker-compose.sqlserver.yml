@@ -1,0 +1,8 @@
+# Optional override: full SQL Server 2022 (amd64 only — uses emulation on Apple Silicon).
+# Usage: docker compose -f docker-compose.yml -f docker-compose.sqlserver.yml up -d sqlserver
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Your_strong_Password123" -C -Q "SELECT 1" || exit 1

@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: Your_strong_Password123
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Your_strong_Password123 -C -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+      rabbitmq:
+        image: rabbitmq:3.13
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Restore .NET dependencies
+        run: dotnet restore SadcOMS.sln
+
+      - name: Build solution
+        run: dotnet build SadcOMS.sln --no-restore -c Release
+
+      - name: Run unit tests
+        run: dotnet test src/SadcOMS.Tests/SadcOMS.Tests.csproj --no-build -c Release --filter "FullyQualifiedName~SadcOMS.Tests.Domain" --verbosity normal
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef --version 8.0.11
+
+      - name: Generate migration script
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef migrations script \
+            --project src/SadcOMS.Infrastructure \
+            --startup-project src/SadcOMS.API \
+            --idempotent \
+            --output migration-script.sql
+
+      - name: Apply migrations to test database
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef database update \
+            --project src/SadcOMS.Infrastructure \
+            --startup-project src/SadcOMS.API \
+            --connection "Server=localhost,1433;Database=SadcOMS_CI;User Id=sa;Password=Your_strong_Password123;TrustServerCertificate=True;"
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=SadcOMS_CI;User Id=sa;Password=Your_strong_Password123;TrustServerCertificate=True;"
+
+      - name: Run integration tests
+        run: dotnet test src/SadcOMS.Tests/SadcOMS.Tests.csproj --no-build -c Release --filter "FullyQualifiedName~SadcOMS.Tests.Integration" --verbosity normal
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build web
+        working-directory: web
+        run: npm run build
+
+      - name: Upload migration script artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-script
+          path: migration-script.sql

@@ -1,0 +1,88 @@
+{
+  "info": {
+    "name": "SadcOMS API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "customerId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "rowVersion", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Create Customer",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/customers",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Acme Trading\",\n  \"email\": \"orders@acme.co.za\",\n  \"countryCode\": \"ZA\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Customer",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/customers/{{customerId}}"
+      }
+    },
+    {
+      "name": "Search Customers",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/customers?search=&page=1&pageSize=20"
+      }
+    },
+    {
+      "name": "Create Order",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"currencyCode\": \"ZAR\",\n  \"lineItems\": [\n    {\"productSku\": \"WIDGET-001\", \"quantity\": 2, \"unitPrice\": 149.99}\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Order",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/orders/{{orderId}}"
+      }
+    },
+    {
+      "name": "Search Orders",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/orders?customerId=&status=&page=1&pageSize=20&sort=createdat_desc"
+      }
+    },
+    {
+      "name": "Update Order Status",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "{{$guid}}" }
+        ],
+        "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"Paid\",\n  \"rowVersion\": \"{{rowVersion}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "ZAR Report",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/reports/orders/zar"
+      }
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+services:
+  # Azure SQL Edge (native arm64 on Apple Silicon; tag must be :latest or :2.0.0 — :2.2.0 does not exist).
+  # For full SQL Server 2022 (amd64 emulation on Mac): docker compose -f docker-compose.yml -f docker-compose.sqlserver.yml up -d sqlserver
+  sqlserver:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Your_strong_Password123"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      # sqlcmd is not bundled in the arm64 image; use a TCP port check instead
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/SadcOMS.API/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=SadcOMS;User Id=sa;Password=Your_strong_Password123;TrustServerCertificate=True;"
+      RabbitMQ__HostName: rabbitmq
+      Auth__DevBypass: "true"
+      Auth__SigningKey: "sadcoms-dev-signing-key-min-32-chars!!"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/SadcOMS.Worker/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=SadcOMS;User Id=sa;Password=Your_strong_Password123;TrustServerCertificate=True;"
+      RabbitMQ__HostName: rabbitmq
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  migrate:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    working_dir: /src
+    volumes:
+      - ./:/src
+    environment:
+      DATABASE_URL: "Server=sqlserver,1433;Database=SadcOMS;User Id=sa;Password=Your_strong_Password123;TrustServerCertificate=True;"
+    command: >
+      bash -c "dotnet tool install --global dotnet-ef --version 8.0.11 &&
+               export PATH=\"$$PATH:/root/.dotnet/tools\" &&
+               dotnet ef database update --project src/SadcOMS.Infrastructure --startup-project src/SadcOMS.API --connection \"$$DATABASE_URL\""
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+volumes:
+  sqlserver_data:

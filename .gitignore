@@ -1,0 +1,42 @@
+## Ignore Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.nupkg
+
+## Node
+web/node_modules/
+web/dist/
+
+## Environment
+.env
+.env.local
+*.env
+
+## IDE
+.idea/
+*.swp
+*~
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Generated
+migration-script.sql
