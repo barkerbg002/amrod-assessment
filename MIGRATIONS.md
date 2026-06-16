@@ -68,8 +68,8 @@ The GitHub Actions pipeline (`.github/workflows/ci.yml`) validates migrations:
 1. **Build** the solution
 2. **Generate idempotent script**: `dotnet ef migrations script --idempotent -o migration-script.sql`
 3. **Spin up SQL Server** as a service container
-4. **Apply migrations**: `dotnet ef database update` against `SadcOMS_CI` database
-5. **Run integration tests** against the migrated schema
+4. **Apply migrations**: `dotnet ef database update` against `SadcOMS_CI` — validates that migrations apply cleanly to a fresh SQL Server database
+5. **Run the test suite**: unit tests plus integration tests (integration tests use InMemory EF for speed)
 6. **Upload** the generated script as a build artifact for review
 
 This ensures migrations compile, apply cleanly to a fresh database, and don't break the application.
